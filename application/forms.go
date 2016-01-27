@@ -2,11 +2,16 @@ package application
 
 import (
 	"bytes"
+	"crypto/md5"
+	"encoding/hex"
 	"github.com/mholt/binding"
 	"github.com/thoas/gostorages"
 	"github.com/thoas/picfit/image"
 	"io"
 	"mime/multipart"
+	"path"
+	"strconv"
+	"time"
 )
 
 type MultipartForm struct {
@@ -37,15 +42,25 @@ func (f *MultipartForm) Upload(storage gostorages.Storage) (*image.ImageFile, er
 	if err != nil {
 		return nil, err
 	}
+	//file storage path=>16进制(yMd)/16进制(hhm)
+	//if not exists,create one
+	now := time.Now()
+	dir1, _ := strconv.ParseInt(now.Format("0612"), 10, 64)
+	dir2, _ := strconv.ParseInt(now.Format("1504"), 10, 64)
+	ext := strconv.FormatInt(dir1, 16) + "/" + strconv.FormatInt(dir2, 16) + "/"
 
-	err = storage.Save(f.Data.Filename, gostorages.NewContentFile(dataBytes.Bytes()))
+	h := md5.New()
+	h.Write(dataBytes.Bytes())
+	filename := hex.EncodeToString(h.Sum(nil)) + path.Ext(f.Data.Filename)
+
+	err = storage.Save(ext+filename, gostorages.NewContentFile(dataBytes.Bytes()))
 
 	if err != nil {
 		return nil, err
 	}
 
 	return &image.ImageFile{
-		Filepath: f.Data.Filename,
+		Filepath: filename,
 		Storage:  storage,
 	}, nil
 }
